@@ -15,10 +15,12 @@
   (case (car code)
     ((let) (print-let code))
     ((cond) (print-cond code))
-    (else (my-print list))))
+    ((case) (print-case code))
+    ((begin) (print-begin-like code))
+    (else (my-print code))))
   
 (define (print-atom code)
-  (display code))
+  (my-print code))
 
 (define (print-let code)
   (let ((old-indent indent)
@@ -48,13 +50,60 @@
                   (my-print " ")
                   (print-code (cadr (car bs)))
                   (my-print ")"))))))
+    (my-print ")")
     (set! indent (+ 2 old-indent))
     (print-body body)
     (my-print ")")
     (set! indent old-indent)))
 
+
+(define (print-begin-like c)
+  (let ((old-indent indent))
+    (my-print "(")
+    (print-code (car c))
+    (my-print " ")
+    (set! indent col)
+    (print-code (cadr c))
+    (for-each
+     (lambda (c)
+       (my-newline)
+       (print-indent indent)
+       (print-code c))
+     (cddr c))
+    (my-print ")")
+    (set! indent old-indent)))
+
+(define (print-cases code)
+  (let ((clause-indent col))
+    (set! indent clause-indent)
+    (print-begin-like (car code))
+    (for-each
+     (lambda (c)
+       (my-newline)
+       (print-indent indent)
+       (print-begin-like c))
+     (cdr code))))
+
+(define (print-case code)
+  (let ((old-indent indent)
+        (clauses (cddr code)))
+    (my-print "(case ")
+    (print-code (cadr code))
+    (set! indent (+ indent 2))
+    (my-newline)
+    (print-indent indent)
+    (print-cases clauses)
+    (my-print ")")
+    (set! indent old-indent)))
+
+
 (define (print-cond code)
-  )
+  (let ((old-indent indent)
+        (clauses (cdr code)))
+    (my-print "(cond ")
+    (print-cases clauses)
+    (my-print ")")
+    (set! indent old-indent)))
 
 (define (print-body codes)
   (for-each
@@ -100,5 +149,17 @@
   (print-code c)
   (my-newline))
 
-(print-code-top '(let ((x 1) (y 2)) body1 body2 body3))
-;;(quit)
+(print-code-top '(let ((x 1) (y 2)) (cond ((foo? a) b) (else a (begin b c d)))))
+#|
+(let ((x 1)
+      (y 2)
+  (cond ((foo? a) b)
+        (else a
+              (begin b
+                     c
+                     d)))))
+|#
+
+(print-code-top '(case a ((a) b c) ((d) e) (else f)))
+
+(quit)
